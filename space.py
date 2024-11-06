@@ -38,10 +38,12 @@ class SpacePy:
         plugin_name = os.path.splitext(file_name)[0]
         self.logger = Logger(plugin_name)
 
+        self.logger.log("Starting SpacePy 1.0.0")
+
         self._api_token = os.environ.get('SPACELIFT_API_TOKEN', False)
         self._spacelift_domain = os.environ.get('SPACELIFT_DOMAIN', False)
         self._api_enabled = self._api_token != False and self._spacelift_domain != False
-        self._workspace_root = os.environ.get('TF_VAR_spacelift_workspace_root', os.getcwd())
+        self._workspace_root = os.environ.get('WORKSPACE_ROOT', os.getcwd())
 
         # This should be the last thing we do in the constructor
         # because we set api_enabled to false if the domain is set up incorrectly.
@@ -111,8 +113,6 @@ class SpacePy:
         if variables is not None:
             data["variables"] = variables
 
-        print("JOEY", data)
-
         req = urllib.request.Request(f"{self._spacelift_domain}/graphql", json.dumps(data).encode('utf-8'), headers)
         with urllib.request.urlopen(req) as response:
             resp = json.loads(response.read().decode('utf-8'))
@@ -137,7 +137,7 @@ def startup(plugin_path: str, plugin_name: str):
         os.system(f"{virtual_env_activator}pip install -r {plugin_path}/requirements.txt")
 
     # Start the plugin
-    os.system(f"{virtual_env_activator}python {plugin_path}/{plugin_name}.py")
+    os.system(f"{virtual_env_activator}WORKSPACE_ROOT={os.getcwd()} python {plugin_path}/{plugin_name}.py")
 
 def generate(phase: str, plugin_name: str):
     print(f"Generating OpenTofu code for {plugin_name} in the {phase} phase.")
