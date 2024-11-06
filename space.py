@@ -141,6 +141,20 @@ def startup(plugin_path: str, plugin_name: str):
 
 def generate(phase: str, plugin_name: str):
     print(f"Generating OpenTofu code for {plugin_name} in the {phase} phase.")
+
+    # check if requirements.txt exists
+    requirements = ""
+    if os.path.exists("requirements.txt"):
+        requirements = """
+resource "spacelift_mounted_file" "requirements" {
+    context_id    = spacelift_context.this.id
+    relative_path = "requirements.txt"
+    content       = filebase64("${path.module}/requirements.txt")
+    write_only    = false
+}
+        """
+
+
     template = f"""
 terraform {{
   required_providers {{
@@ -192,6 +206,7 @@ resource "spacelift_mounted_file" "spacepy" {{
   content       = filebase64("${{path.module}}/space.py")
   write_only    = false
 }}
+{requirements}
 
 resource "spacelift_environment_variable" "domain" {{
   context_id = spacelift_context.this.id
