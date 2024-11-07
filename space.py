@@ -38,7 +38,7 @@ class SpacePy:
         plugin_name = os.path.splitext(file_name)[0]
         self.logger = Logger(plugin_name)
 
-        self.logger.log("Starting SpacePy 1.0.0")
+        self.logger.log("Starting SpacePy 1.0.1")
 
         self._api_token = os.environ.get('SPACELIFT_API_TOKEN', False)
         self._spacelift_domain = os.environ.get('SPACELIFT_DOMAIN', False)
@@ -125,16 +125,16 @@ class SpacePy:
 
 def startup(plugin_path: str, plugin_name: str):
     virtual_env_activator = ""
+    if os.path.exists(f"{plugin_path}/requirements.txt"):
+        virtual_env_path = f"{plugin_path}/.venv/bin/activate"
+        virtual_env_activator = f"source {virtual_env_path} && "
 
-    # Check for requirements.txt
-    if os.path.exists(f"{plugin_path}/requirements.txt") and not os.path.exists(f"{plugin_path}/.venv"):
-
-        # Start a virtual environment
-        os.system(f"python -m venv {plugin_path}/.venv")
-
-        # Use the virtual environment and install requirements
-        virtual_env_activator = f"source {plugin_path}/.venv/bin/activate && "
-        os.system(f"{virtual_env_activator}pip install -r {plugin_path}/requirements.txt")
+        # check if the virtual environment needs to be initialized
+        if not os.path.exists(f"{plugin_path}/.venv"):
+            # initialize the virtual environment
+            os.system(f"python -m venv {plugin_path}/.venv")
+            # Install requirements
+            os.system(f"{virtual_env_activator}python -m pip install -r {plugin_path}/requirements.txt")
 
     # Start the plugin
     os.system(f"{virtual_env_activator}WORKSPACE_ROOT={os.getcwd()} python {plugin_path}/{plugin_name}.py")
@@ -145,13 +145,13 @@ def generate(phase: str, plugin_name: str):
     # check if requirements.txt exists
     requirements = ""
     if os.path.exists("requirements.txt"):
-        requirements = """
-resource "spacelift_mounted_file" "requirements" {
+        requirements = f"""
+resource "spacelift_mounted_file" "requirements" {{
     context_id    = spacelift_context.this.id
-    relative_path = "requirements.txt"
-    content       = filebase64("${path.module}/requirements.txt")
+    relative_path = "{plugin_name}/requirements.txt"
+    content       = filebase64("${{path.module}}/requirements.txt")
     write_only    = false
-}
+}}
         """
 
 
@@ -189,20 +189,20 @@ resource "spacelift_context" "this" {{
   space_id = var.space_id
 
   {phase} = [
-    "python /mnt/workspace/space.py start {plugin_name}"
+    "python /mnt/workspace/{plugin_name}/space.py start {plugin_name}"
   ]
 }}
 
 resource "spacelift_mounted_file" "this" {{
   context_id    = spacelift_context.this.id
-  relative_path = "{plugin_name}.py"
+  relative_path = "{plugin_name}/{plugin_name}.py"
   content       = filebase64("${{path.module}}/{plugin_name}.py")
   write_only    = false
 }}
 
 resource "spacelift_mounted_file" "spacepy" {{
   context_id    = spacelift_context.this.id
-  relative_path = "space.py"
+  relative_path = "{plugin_name}/space.py"
   content       = filebase64("${{path.module}}/space.py")
   write_only    = false
 }}
