@@ -3,6 +3,8 @@ import inspect
 import json
 import urllib.request
 import sys
+import subprocess
+
 
 class Logger:
     def __init__(self, package_name: str):
@@ -18,19 +20,28 @@ class Logger:
         self._end_color = "\033[0m"
 
     def log(self, message: str):
-        print(f"{self._log_color}[{self._run_id}]{self._end_color} ({self._package_name})", message)
+        message = message.split("\n")
+        for m in message:
+            print(f"{self._log_color}[{self._run_id}]{self._end_color} ({self._package_name})", m)
 
     def debug(self, message: str):
         if self._debug_mode:
-            print(f"{self._log_color}[{self._run_id}]{self._end_color} ({self._package_name}) "
-                  f"{self._debug_color}DEBUG{self._end_color}", message)
+            message = message.split("\n")
+            for m in message:
+                print(f"{self._log_color}[{self._run_id}]{self._end_color} ({self._package_name}) "
+                      f"{self._debug_color}DEBUG{self._end_color}", m)
 
     def warn(self, message: str):
-        print(f"{self._log_color}[{self._run_id}]{self._end_color} ({self._package_name}) "
-              f"{self._warn_color}WARN{self._end_color} ", message)
+        message = message.split("\n")
+        for m in message:
+            print(f"{self._log_color}[{self._run_id}]{self._end_color} ({self._package_name}) "
+                  f"{self._warn_color}WARN{self._end_color} ", m)
 
     def error(self, message: str):
-        print(f"{self._error_color}[{self._run_id}] ({self._package_name}) ERROR{self._end_color}", message)
+        message = message.split("\n")
+        for m in message:
+            print(f"{self._error_color}[{self._run_id}] ({self._package_name}) ERROR{self._end_color}", m)
+
 
 class SpacePy:
     def __init__(self, fn: callable):
@@ -38,7 +49,7 @@ class SpacePy:
         plugin_name = os.path.splitext(file_name)[0]
         self.logger = Logger(plugin_name)
 
-        self.logger.log("Starting SpacePy 1.0.1")
+        self.logger.log("Starting SpacePy 1.1.0")
 
         self._api_token = os.environ.get('SPACELIFT_API_TOKEN', False)
         self._spacelift_domain = os.environ.get('SPACELIFT_DOMAIN', False)
@@ -80,7 +91,13 @@ class SpacePy:
         if "state_before_json" in sig.parameters:
             args["state_before_json"] = self.get_state_before_json()
 
+        if "run_command" in sig.parameters:
+            args["run_command"] = self.run_command
+
         fn(**args)
+
+    def run_command(self, command: list[str]) -> str:
+        return subprocess.run(command, stdout=subprocess.PIPE).stdout.decode('utf-8')
 
     def get_plan_json(self) -> dict | None:
         plan_json = f"{self._workspace_root}/spacelift.plan.json"
@@ -100,7 +117,7 @@ class SpacePy:
         with open(plan_json) as f:
             return json.load(f)
 
-    def query_api(self, query: str, variables: dict=None) -> dict:
+    def query_api(self, query: str, variables: dict = None) -> dict:
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._api_token}"
@@ -123,6 +140,7 @@ class SpacePy:
         else:
             return resp
 
+
 def startup(plugin_path: str, plugin_name: str):
     virtual_env_activator = ""
     if os.path.exists(f"{plugin_path}/requirements.txt"):
@@ -139,6 +157,7 @@ def startup(plugin_path: str, plugin_name: str):
     # Start the plugin
     os.system(f"{virtual_env_activator}WORKSPACE_ROOT={os.getcwd()} python {plugin_path}/{plugin_name}.py")
 
+
 def generate(phase: str, plugin_name: str):
     print(f"Generating OpenTofu code for {plugin_name} in the {phase} phase.")
 
@@ -153,7 +172,6 @@ resource "spacelift_mounted_file" "requirements" {{
     write_only    = false
 }}
         """
-
 
     template = f"""
 terraform {{
@@ -218,6 +236,7 @@ resource "spacelift_environment_variable" "domain" {{
 
     with open("main.tf", "w") as f:
         f.write(template)
+
 
 def main():
     l = Logger("SpacePy")
